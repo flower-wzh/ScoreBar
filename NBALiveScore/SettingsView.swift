@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("refreshInterval") private var refreshInterval: Double = 10.0
+    @AppStorage("showFullName") private var showFullName: Bool = false
     @AppStorage("playerDictUrl") private var playerDictUrl: String = ""
     @State private var updateMessage = ""
     @State private var isUpdating = false
@@ -28,6 +29,23 @@ struct SettingsView: View {
                         }
                     }
                     .padding(.vertical, 8)
+                    
+                    Divider()
+                    
+                    HStack(alignment: .top, spacing: 20) {
+                        Text("姓名显示:")
+                            .frame(width: 80, alignment: .trailing)
+                            .padding(.top, 4)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Picker("", selection: $showFullName) {
+                                Text("仅展示名字 (LastName)").tag(false)
+                                Text("展示全名 (FirstName·LastName)").tag(true)
+                            }
+                            .pickerStyle(RadioGroupPickerStyle())
+                        }
+                    }
+                    .padding(.vertical, 8)
                 }
             }
             .padding(20)
@@ -45,7 +63,7 @@ struct SettingsView: View {
                             .padding(.top, 4)
                         
                         VStack(alignment: .leading, spacing: 12) {
-                            TextField("JSON URL 链接", text: $playerDictUrl)
+                            TextField("自定义远程词典 URL (如留空则使用内置默认节点)", text: $playerDictUrl)
                                 .textFieldStyle(RoundedBorderTextFieldStyle())
                                 .frame(maxWidth: .infinity)
                             
@@ -57,7 +75,7 @@ struct SettingsView: View {
                                 Button(action: fetchRemoteDictionary) {
                                     Text(isUpdating ? "正在拉取..." : "立即手动拉取更新")
                                 }
-                                .disabled(playerDictUrl.isEmpty || isUpdating)
+                                .disabled(isUpdating)
                                 
                                 if !updateMessage.isEmpty {
                                     Text(updateMessage)
@@ -81,7 +99,8 @@ struct SettingsView: View {
     }
     
     func fetchRemoteDictionary() {
-        guard let url = URL(string: playerDictUrl) else {
+        let finalUrl = playerDictUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/players.json" : playerDictUrl
+        guard let url = URL(string: finalUrl) else {
             updateMessage = "错误的 URL 格式"
             return
         }
@@ -117,7 +136,7 @@ struct SettingsView: View {
                                 // 根据中文习惯，拼接 firstName 和 lastName 作为中文全名
                                 // 注意在这个 JSON 中，如“恩比德”(LastName) + “乔尔”(FirstName) => "乔尔-恩比德" 或直接用 lastName 等，
                                 // 这里使用 firstName + lastName 合并，如没有 firstName 则只用 lastName
-                                let zhName = firstName.isEmpty ? lastName : "\(firstName) \(lastName)"
+                                let zhName = firstName.isEmpty ? lastName : "\(firstName)·\(lastName)"
                                 newMapping[displayName] = zhName.trimmingCharacters(in: .whitespaces)
                             }
                         }

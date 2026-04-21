@@ -280,14 +280,24 @@ class PlayerTranslator {
     func translate(firstName: String, familyName: String, fallback: String) -> String {
         let fullName = "\(firstName) \(familyName)".trimmingCharacters(in: .whitespaces)
         
+        var translated = fallback
+        
         // 1. 最高优先级：FirstName + LastName 全名匹配
-        if let matched = dictionary[fullName] { return matched }
+        if let matched = dictionary[fullName] {
+            translated = matched
+        } else if let matched = uniqueFamilyNames[familyName] {
+            // 2. 次高优先级：特殊稀缺姓氏匹配
+            translated = matched
+        }
         
-        // 2. 次高优先级：特殊稀缺姓氏匹配
-        if let matched = uniqueFamilyNames[familyName] { return matched }
+        let showFullName = UserDefaults.standard.bool(forKey: "showFullName")
         
-        // 3. 原生兜底（例如 L. James），这能够很大程度保留外文球员的体验而不至于变成“未知”
-        return fallback
+        // 按照用户设置过滤：如果用户只想要单名 (LastName) 且翻译字符串是以“·”间隔的，截取后半段
+        if !showFullName && translated.contains("·") {
+            return String(translated.split(separator: "·").last ?? "")
+        }
+        
+        return translated
     }
 }
 

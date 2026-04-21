@@ -24,8 +24,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         
         // App冷启动：自动拉取一次云端词典 (如果配置了 URL)
-        let dictUrl = UserDefaults.standard.string(forKey: "playerDictUrl") ?? ""
-        if !dictUrl.isEmpty, let url = URL(string: dictUrl) {
+        let savedUrl = UserDefaults.standard.string(forKey: "playerDictUrl") ?? ""
+        let dictUrl = savedUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/players.json" : savedUrl
+        
+        if let url = URL(string: dictUrl) {
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
             URLSession.shared.dataTask(with: request) { data, _, _ in
@@ -37,7 +39,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         if let displayName = player["displayName"] as? String,
                            let lastName = player["lastName"] as? String,
                            let firstName = player["firstName"] as? String {
-                            let zhName = firstName.isEmpty ? lastName : "\(firstName) \(lastName)"
+                            let zhName = firstName.isEmpty ? lastName : "\(firstName)·\(lastName)"
                             newMapping[displayName] = zhName.trimmingCharacters(in: .whitespaces)
                         }
                     }

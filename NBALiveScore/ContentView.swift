@@ -401,6 +401,9 @@ struct GameDetailView: View {
                 return
             }
             
+            let gameStatus = (g["gameStatus"] as? Int) ?? 1
+            let isLive = gameStatus == 2
+            
             func parsePeriods(_ teamData: [String: Any]?) -> [Int] {
                 guard let p = teamData?["periods"] as? [[String: Any]] else { return [] }
                 return p.sorted(by: { ($0["period"] as? Int ?? 0) < ($1["period"] as? Int ?? 0) })
@@ -417,8 +420,8 @@ struct GameDetailView: View {
                     let fallbackName = (p["nameI"] as? String) ?? familyName
                     let name = PlayerTranslator.shared.translate(firstName: firstName, familyName: familyName, fallback: fallbackName)
                     
-                    let onCourt = (p["oncourt"] as? String) == "1"
                     let starter = (p["starter"] as? String) == "1"
+                    let onCourt = isLive && (p["oncourt"] as? String) == "1"
                     
                     // Format time as 分:秒:毫秒
                     var rawTime = (stats["minutes"] as? String) ?? "00:00"
@@ -442,8 +445,7 @@ struct GameDetailView: View {
                     }
                     if m.count == 1 { m = "0" + m }
                     if s.count == 1 { s = "0" + s }
-                    var timeStr = "\(m):\(s)"
-                    if ms != "00" { timeStr += ":\(ms)" } else { timeStr += ":00" }
+                    let timeStr = "\(m):\(s)"
                     
                     return PlayerStat(
                         name: name, time: timeStr, pts: pts,
@@ -456,7 +458,11 @@ struct GameDetailView: View {
                         onCourt: onCourt, isStarter: starter
                     )
                 }.sorted(by: {
-                    if $0.onCourt != $1.onCourt { return $0.onCourt }
+                    if isLive {
+                        if $0.onCourt != $1.onCourt { return $0.onCourt }
+                    } else {
+                        if $0.isStarter != $1.isStarter { return $0.isStarter }
+                    }
                     return $0.pts > $1.pts
                 })
             }
@@ -548,15 +554,15 @@ struct PlayerStatsSection: View {
             
             // 数据表头 (极度紧凑间距)
             HStack(spacing: 0) {
-                Text("球员").frame(width: 70, alignment: .leading)
-                Text("时间").frame(width: 50, alignment: .center)
+                Text("球员").frame(width: 100, alignment: .leading)
+                Text("时间").frame(width: 40, alignment: .center)
                 Text("分").frame(width: 22, alignment: .center)
                 Text("板").frame(width: 22, alignment: .center)
                 Text("助").frame(width: 22, alignment: .center)
                 Text("投篮").frame(width: 32, alignment: .center)
                 Text("三分").frame(width: 32, alignment: .center)
                 Text("罚球").frame(width: 32, alignment: .center)
-                Text("+/-").frame(width: 24, alignment: .trailing)
+                Text("+/-").frame(width: 28, alignment: .trailing)
             }
             .font(.system(size: 10)).foregroundColor(.gray)
             .padding(.horizontal, 10).padding(.bottom, 6)
@@ -574,9 +580,9 @@ struct PlayerStatsSection: View {
                                 .frame(width: 5, height: 5)
                             Text(p.name).lineLimit(1)
                                 .foregroundColor(p.onCourt ? .orange : (p.isStarter ? .white : .white.opacity(0.6)))
-                        }.frame(width: 70, alignment: .leading)
+                        }.frame(width: 100, alignment: .leading)
                         
-                        Text(p.time).frame(width: 50, alignment: .center).foregroundColor(.gray)
+                        Text(p.time).frame(width: 40, alignment: .center).foregroundColor(.gray)
                         Text("\(p.pts)").frame(width: 22, alignment: .center).foregroundColor(.orange).font(.system(size: 11, weight: .bold))
                         Text("\(p.reb)").frame(width: 22, alignment: .center)
                         Text("\(p.ast)").frame(width: 22, alignment: .center)
@@ -585,7 +591,7 @@ struct PlayerStatsSection: View {
                         Text(p.ft).frame(width: 32, alignment: .center).foregroundColor(.gray)
                         
                         Text(p.plusMinus > 0 ? "+\(p.plusMinus)" : "\(p.plusMinus)")
-                            .frame(width: 24, alignment: .trailing)
+                            .frame(width: 28, alignment: .trailing)
                             .foregroundColor(p.plusMinus > 0 ? .green : (p.plusMinus < 0 ? .red : .gray))
                     }
                     .font(.system(size: 11))

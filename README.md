@@ -11,3 +11,14 @@
 2. 选择运行目标 `NBALiveScore`
 3. `Run`（⌘R）
 
+## 功能说明
+- 支持从远程 JSON 词典拉取球员姓名映射（也可在设置中自定义 URL）
+- 支持姓名显示模式切换：
+  - 仅展示名字（LastName）
+  - 展示全名（FirstName·LastName）
+
+## 词典（players.json）
+- 仓库内置：`NBALiveScore/data/players.json`
+- 通过 Raw 访问（main 分支）：
+  - `https://raw.githubusercontent.com/flower-wzh/NBALiveScore/main/NBALiveScore/data/players.json`
+
