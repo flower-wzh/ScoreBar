@@ -49,19 +49,27 @@ class SportsViewModel: ObservableObject {
         timer?.cancel()
         let interval = max(5.0, currentRefreshInterval) // 最小不能低于5秒
         timer = Timer.publish(every: interval, on: .main, in: .common).autoconnect().sink { [weak self] _ in
-            self?.fetchGames()
+            self?.fetchGamesSafely()
         }
     }
     
+    private var isRequesting = false
+    func fetchGamesSafely() {
+        if isRequesting { return }
+        isRequesting = true
+        fetchGames()
+    }
+    
     func fetchGames() {
-        DispatchQueue.main.async {
-            self.isLoading = true
+        DispatchQueue.main.async { self.isLoading = true }
+        
+        guard let url = URL(string: "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json") else {
+            isRequesting = false
+            return
         }
         
-        guard let url = URL(string: "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json") else { return }
-        
         var request = URLRequest(url: url)
-        request.timeoutInterval = 15
+        request.timeoutInterval = 8 // 设置较短的超时时间
         
         // 防爬伪装
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
@@ -69,8 +77,17 @@ class SportsViewModel: ObservableObject {
         request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
         request.setValue("https://www.nba.com/", forHTTPHeaderField: "Referer")
         
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            DispatchQueue.main.async { self.isLoading = false }
+        // 使用一个短暂连接寿命的临时轻量级配置，避免连接堆积
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForResource = 15
+        let session = URLSession(configuration: config)
+        
+        session.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                self.isRequesting = false
+            }
             
             guard let data = data, error == nil else {
                 print("❌ 网络请求失败或无数据")
