@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+DerivedData/
+build/
+*.xccheckout
+*.xcuserstate
+*.xcscmblueprint
+
+# Xcode user-specific settings
+xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager (if added later)
+.build/
+Package.resolved
+
+# CocoaPods / Carthage / Accio (if added later)
+Pods/
+Carthage/Build/
+.accio/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Code injection
+iOSInjectionProject/
+
+# Debug / symbol artifacts
+*.dSYM
+*.dSYM.zip
+*.dSYM.tar.gz
+
