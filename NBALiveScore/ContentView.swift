@@ -191,43 +191,200 @@ struct GameRowView: View {
     @EnvironmentObject var popoverManager: PopoverManager
     @State private var isHovered = false
     @State private var hoverTask: DispatchWorkItem?
+    @State private var boxData: BoxscoreModel? = nil
+    @State private var isFetchingBox = false
     
     var body: some View {
-        HStack(alignment: .center) {
-            teamInfoView
-            Spacer()
-            scoreAndPinView
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center) {
+                teamInfoView
+                Spacer()
+                scoreAndPinView
+            }
+            .padding(14)
+            
+            if popoverManager.activeGameId == game.id {
+                if let box = boxData {
+                    TeamScoreBoardView(box: box)
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 14)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .scale(scale: 0.9, anchor: .top)),
+                            removal: .opacity
+                        ))
+                } else if isFetchingBox {
+                    HStack {
+                        Spacer()
+                        ProgressView().controlSize(.small)
+                        Spacer()
+                    }
+                    .padding(.bottom, 14)
+                }
+            }
         }
-        .padding(14)
         .background(backgroundView)
+        .cornerRadius(12)
         .scaleEffect(isHovered ? 1.01 : 1.0)
         .animation(.snappy(duration: 0.2), value: isHovered)
+        .animation(.snappy(duration: 0.3), value: popoverManager.activeGameId == game.id)
         .onHover(perform: handleHover)
         .onTapGesture(perform: handleTap)
         .popover(isPresented: popoverBinding, attachmentAnchor: .rect(.bounds), arrowEdge: .trailing) {
-            GameDetailView(gameId: game.id)
+            GameDetailView(gameId: game.id, externalBoxData: boxData)
         }
+        .onChange(of: popoverManager.activeGameId) { newValue in
+            if newValue == game.id {
+                fetchBoxscore()
+            }
+        }
+        .onChange(of: viewModel.games) { _ in
+            if popoverManager.activeGameId == game.id && game.status == "live" {
+                fetchBoxscore()
+            }
+        }
+    }
+    
+    private func fetchBoxscore() {
+        guard !isFetchingBox else { return }
+        isFetchingBox = true
+        
+        let urlString = "https://cdn.nba.com/static/json/liveData/boxscore/boxscore_\(game.id).json"
+        guard let url = URL(string: urlString) else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15", forHTTPHeaderField: "User-Agent")
+        
+        URLSession.shared.dataTask(with: request) { d, _, _ in
+            guard let d = d, let json = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let g = json["game"] as? [String: Any] else {
+                DispatchQueue.main.async { self.isFetchingBox = false }
+                return
+            }
+            
+            let gameStatus = (g["gameStatus"] as? Int) ?? 1
+            let isLive = gameStatus == 2
+            
+            func parsePeriods(_ teamData: [String: Any]?) -> [Int] {
+                guard let p = teamData?["periods"] as? [[String: Any]] else { return [] }
+                return p.sorted(by: { ($0["period"] as? Int ?? 0) < ($1["period"] as? Int ?? 0) })
+                        .compactMap { $0["score"] as? Int }
+            }
+            
+            func parsePlayers(_ teamData: [String: Any]?) -> [PlayerStat] {
+                guard let players = teamData?["players"] as? [[String: Any]] else { return [] }
+                return players.compactMap { p in
+                    guard let stats = p["statistics"] as? [String: Any], let pts = stats["points"] as? Int else { return nil }
+                    
+                    let firstName = (p["firstName"] as? String) ?? ""
+                    let familyName = (p["familyName"] as? String) ?? ""
+                    let fallbackName = (p["nameI"] as? String) ?? familyName
+                    let name = PlayerTranslator.shared.translate(firstName: firstName, familyName: familyName, fallback: fallbackName)
+                    
+                    let starter = (p["starter"] as? String) == "1"
+                    let onCourt = isLive && (p["oncourt"] as? String) == "1"
+                    
+                    // Format time as 分:秒:毫秒
+                    var rawTime = (stats["minutes"] as? String) ?? "00:00"
+                    rawTime = rawTime.replacingOccurrences(of: "PT", with: "")
+                    var m = "00"; var s = "00"
+                    
+                    if rawTime.contains("M") {
+                        let comps = rawTime.components(separatedBy: "M")
+                        m = comps[0]
+                        rawTime = comps.count > 1 ? comps[1] : ""
+                    }
+                    if rawTime.contains("S") {
+                        rawTime = rawTime.replacingOccurrences(of: "S", with: "")
+                        if rawTime.contains(".") {
+                            s = rawTime.components(separatedBy: ".")[0]
+                        } else {
+                            s = rawTime
+                        }
+                    }
+                    if m.count == 1 { m = "0" + m }
+                    if s.count == 1 { s = "0" + s }
+                    let timeStr = "\(m):\(s)"
+                    
+                    return PlayerStat(
+                        name: name, time: timeStr, pts: pts,
+                        reb: (stats["reboundsTotal"] as? Int) ?? 0,
+                        ast: (stats["assists"] as? Int) ?? 0,
+                        fg: "\(stats["fieldGoalsMade"] ?? 0)/\(stats["fieldGoalsAttempted"] ?? 0)",
+                        threePt: "\(stats["threePointersMade"] ?? 0)/\(stats["threePointersAttempted"] ?? 0)",
+                        ft: "\(stats["freeThrowsMade"] ?? 0)/\(stats["freeThrowsAttempted"] ?? 0)",
+                        plusMinus: (stats["plusMinusPoints"] as? Int) ?? 0,
+                        onCourt: onCourt, isStarter: starter
+                    )
+                }.sorted(by: {
+                    if isLive {
+                        if $0.onCourt != $1.onCourt { return $0.onCourt }
+                    } else {
+                        if $0.isStarter != $1.isStarter { return $0.isStarter }
+                    }
+                    return $0.pts > $1.pts
+                })
+            }
+            
+            let aData = g["awayTeam"] as? [String: Any]
+            let hData = g["homeTeam"] as? [String: Any]
+            let awayTri = aData?["teamTricode"] as? String ?? ""
+            let homeTri = hData?["teamTricode"] as? String ?? ""
+            
+            let model = BoxscoreModel(
+                awayName: popoverTeamTranslation[awayTri] ?? (aData?["teamName"] as? String ?? "客队"),
+                homeName: popoverTeamTranslation[homeTri] ?? (hData?["teamName"] as? String ?? "主队"),
+                awayScore: aData?["score"] as? Int ?? 0,
+                homeScore: hData?["score"] as? Int ?? 0,
+                awayPeriods: parsePeriods(aData),
+                homePeriods: parsePeriods(hData),
+                awayPlayers: parsePlayers(aData),
+                homePlayers: parsePlayers(hData)
+            )
+            DispatchQueue.main.async {
+                self.boxData = model
+                self.isFetchingBox = false
+            }
+        }.resume()
     }
     
     // 【修改点】：追加了球队 Logo 显示
     private var teamInfoView: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                AsyncImage(url: URL(string: game.awayTeam.logo)) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: { Circle().fill(Color.white.opacity(0.1)) }
-                .frame(width: 16, height: 16)
+                // 客队
+                HStack(spacing: 3) {
+                    AsyncImage(url: URL(string: game.awayTeam.logo)) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: { Circle().fill(Color.white.opacity(0.1)) }
+                    .frame(width: 16, height: 16)
+                    
+                    Text(game.awayTeam.name).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                    
+                    if let awayWins = game.awayTeam.seriesWins {
+                        Text("(\(awayWins))")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(Color.orange.opacity(0.8))
+                    }
+                }
                 
-                Text(game.awayTeam.name).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
-                Text("@").font(.system(size: 10, weight: .black)).foregroundColor(Color.white.opacity(0.2))
+                Text(":").font(.system(size: 10, weight: .black)).foregroundColor(Color.white.opacity(0.2))
                 
-                AsyncImage(url: URL(string: game.homeTeam.logo)) { image in
-                    image.resizable().scaledToFit()
-                } placeholder: { Circle().fill(Color.white.opacity(0.1)) }
-                .frame(width: 16, height: 16)
-                
-                Text(game.homeTeam.name).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                // 主队
+                HStack(spacing: 3) {
+                    AsyncImage(url: URL(string: game.homeTeam.logo)) { image in
+                        image.resizable().scaledToFit()
+                    } placeholder: { Circle().fill(Color.white.opacity(0.1)) }
+                    .frame(width: 16, height: 16)
+                    
+                    Text(game.homeTeam.name).font(.system(size: 13, weight: .bold)).foregroundColor(.white)
+                    
+                    if let homeWins = game.homeTeam.seriesWins {
+                        Text("(\(homeWins))")
+                            .font(.system(size: 10, weight: .black))
+                            .foregroundColor(Color.orange.opacity(0.8))
+                    }
+                }
             }
+            
             HStack(spacing: 6) {
                 if game.status == "live" { Circle().fill(Color.orange).frame(width: 6, height: 6) }
                 Text(statusText)
@@ -346,23 +503,26 @@ struct PlayerStat: Identifiable {
 
 struct GameDetailView: View {
     let gameId: String
+    let externalBoxData: BoxscoreModel?
     @EnvironmentObject var popoverManager: PopoverManager
     @State private var data: BoxscoreModel? = nil
     @State private var isLoading = true
     
     var body: some View {
         ZStack {
-            Color(red: 30/255, green: 30/255, blue: 30/255).edgesIgnoringSafeArea(.all)
+            Color(red: 25/255, green: 25/255, blue: 25/255).edgesIgnoringSafeArea(.all)
             
-            if isLoading {
+            let displayData = externalBoxData ?? data
+            let isDisplayLoading = externalBoxData == nil ? isLoading : false
+            
+            if isDisplayLoading {
                 VStack {
                     ProgressView().padding()
                     Text("获取数据中...").foregroundColor(.gray)
                 }
-            } else if let box = data {
+            } else if let box = displayData {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        TeamScoreBoardView(box: box)
                         PlayerStatsSection(teamName: "\(box.awayName) (客)", players: box.awayPlayers)
                         PlayerStatsSection(teamName: "\(box.homeName) (主)", players: box.homePlayers)
                     }
@@ -372,10 +532,13 @@ struct GameDetailView: View {
                 Text("暂无数据或比赛尚未开始").foregroundColor(.gray)
             }
         }
-        // 【高度与宽度自适应修复】：整体调小适配 13-14 英寸屏幕。使用同一类的弹性修饰符。
         .frame(minWidth: 320, idealWidth: 380, maxWidth: 500, minHeight: 400, idealHeight: 550, maxHeight: 850)
         .preferredColorScheme(.dark)
-        .onAppear(perform: fetchBoxscore)
+        .onAppear {
+            if externalBoxData == nil {
+                fetchBoxscore()
+            }
+        }
         .onHover { hovering in
             popoverManager.isPopoverHovered = hovering
             if !hovering {
@@ -503,14 +666,15 @@ struct TeamScoreBoardView: View {
                     Text(i < 4 ? "Q\(i+1)" : "OT\(i-3)").frame(width: 22, alignment: .center)
                 }
                 Text("总").frame(width: 30, alignment: .trailing)
-            }.font(.system(size: 10)).foregroundColor(.gray)
+            }.font(.system(size: 10, weight: .medium)).foregroundColor(.white.opacity(0.4))
             
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(Color.white.opacity(0.08))
             
             ScoreRow(name: box.awayName, periods: box.awayPeriods, total: box.awayScore, maxP: maxPeriods)
             ScoreRow(name: box.homeName, periods: box.homePeriods, total: box.homeScore, maxP: maxPeriods)
         }
-        .padding(10).background(Color(white: 0.15).cornerRadius(10))
+        .padding(10)
+        .background(Color.white.opacity(0.05).cornerRadius(10))
     }
     
     struct ScoreRow: View {
