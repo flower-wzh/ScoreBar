@@ -115,8 +115,12 @@ class SportsViewModel: ObservableObject {
                         status: statusText,
                         time: game.gameStatusText,
                         period: game.period > 0 ? "Q\(game.period)" : "",
-                        homeTeam: Team(id: String(game.homeTeam.teamId), name: homeTeamName, score: String(game.homeTeam.score), logo: homeLogo, tricode: homeTri),
-                        awayTeam: Team(id: String(game.awayTeam.teamId), name: awayTeamName, score: String(game.awayTeam.score), logo: awayLogo, tricode: awayTri)
+                        homeTeam: Team(id: String(game.homeTeam.teamId), name: homeTeamName, score: String(game.homeTeam.score), logo: homeLogo, tricode: homeTri, seriesWins: game.homeTeam.wins, seriesLosses: game.homeTeam.losses),
+                        awayTeam: Team(id: String(game.awayTeam.teamId), name: awayTeamName, score: String(game.awayTeam.score), logo: awayLogo, tricode: awayTri, seriesWins: game.awayTeam.wins, seriesLosses: game.awayTeam.losses),
+                        homeTeamSeriesWins: game.homeTeam.wins,
+                        homeTeamSeriesLosses: game.homeTeam.losses,
+                        awayTeamSeriesWins: game.awayTeam.wins,
+                        awayTeamSeriesLosses: game.awayTeam.losses
                     )
                 }
                 
@@ -132,21 +136,27 @@ class SportsViewModel: ObservableObject {
 }
 
 // MARK: - App 实体定义
-struct Game: Identifiable {
+struct Game: Identifiable, Equatable {
     let id: String
     let status: String
     let time: String
     let period: String
     let homeTeam: Team
     let awayTeam: Team
+    let homeTeamSeriesWins: Int?
+    let homeTeamSeriesLosses: Int?
+    let awayTeamSeriesWins: Int?
+    let awayTeamSeriesLosses: Int?
 }
 
-struct Team {
+struct Team: Equatable {
     let id: String
     let name: String
     let score: String
     let logo: String
     let tricode: String?
+    let seriesWins: Int?
+    let seriesLosses: Int?
 }
 
 // MARK: - 网络数据解析模型 (NBA 官方格式)
@@ -172,6 +182,8 @@ struct NBATeam: Codable {
     let teamName: String
     let teamTricode: String
     let score: Int
+    let wins: Int? // 对应 JSON 中的 wins
+    let losses: Int? // 对应 JSON 中的 losses
 }
 
 // MARK: - 球员名字翻译器
