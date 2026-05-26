@@ -33,7 +33,8 @@ fastlane/test_output/
 # Code injection
 iOSInjectionProject/
 
-# Debug / symbol artifacts
+# Claude Code guidance (local only, not pushed to remote)
+CLAUDE.md
 *.dSYM
 *.dSYM.zip
 *.dSYM.tar.gz
