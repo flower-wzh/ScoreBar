@@ -6,9 +6,9 @@ let nbaTeamTranslation: [String: String] = [
     "ATL": "老鹰", "BOS": "凯尔特人", "BKN": "篮网", "CHA": "黄蜂", "CHI": "公牛",
     "CLE": "骑士", "DAL": "独行侠", "DEN": "掘金", "DET": "活塞", "GSW": "勇士",
     "HOU": "火箭", "IND": "步行者", "LAC": "快船", "LAL": "湖人", "MEM": "灰熊",
-    "MIA": "热火", "MIL": "雄鹿", "MIN": "森林狼", "NOP": "鹈鹕", "NYK": "尼克斯",
+    "MIA": "热火", "MIL": "雄鹿", "MIN": "森林狼", "NOP": "鹈鹕", "NY": "尼克斯", "NYK": "尼克斯",
     "OKC": "雷霆", "ORL": "魔术", "PHI": "76人", "PHX": "太阳", "POR": "开拓者",
-    "SAC": "国王", "SAS": "马刺", "TOR": "猛龙", "UTA": "爵士", "WAS": "奇才"
+    "SAC": "国王", "SA": "马刺", "SAS": "马刺", "TOR": "猛龙", "UTA": "爵士", "WAS": "奇才"
 ]
 
 // 扩展 UserDefaults 支持 KVO
@@ -21,30 +21,56 @@ extension UserDefaults {
 class SportsViewModel: ObservableObject {
     @Published var games: [Game] = []
     @Published var isLoading = false
-    @Published var pinnedGameId: String? {
-        didSet { UserDefaults.standard.set(pinnedGameId, forKey: "PinnedGameId") }
+
+    // 共享全局置顶管理器（统一篮球和足球的置顶）
+    private var globalPinned = GlobalPinnedGameManager.shared
+
+    // 强制刷新标记，用于触发视图更新
+    var pinnedGameId: String? {
+        get { globalPinned.pinnedIdOnly }
+        set {
+            if let id = newValue {
+                globalPinned.pinnedGameId = "nba:\(id)"
+                // 缓存置顶的比赛
+                if let game = games.first(where: { $0.id == id }) {
+                    globalPinned.cachedNBAGame = game
+                }
+            } else {
+                globalPinned.pinnedGameId = nil
+                globalPinned.cachedNBAGame = nil
+            }
+            // 通知视图刷新
+            objectWillChange.send()
+        }
     }
-    
+
     var currentRefreshInterval: Double {
         let val = UserDefaults.standard.double(forKey: "refreshInterval")
         return val > 0 ? val : 10.0
     }
-    
+
     private var timer: AnyCancellable?
-    
+    private var cancellables = Set<AnyCancellable>()
+
     init() {
         print("✅ ViewModel 初始化启动！准备发起数据请求...")
-        self.pinnedGameId = UserDefaults.standard.string(forKey: "PinnedGameId")
+
+        // 观察全局置顶管理器的变化，同步通知视图
+        GlobalPinnedGameManager.shared.$pinnedGameId
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         fetchGames()
         startPolling()
-        
+
         UserDefaults.standard.publisher(for: \.refreshInterval)
             .sink { [weak self] _ in self?.startPolling() }
             .store(in: &cancellables)
     }
-    
-    private var cancellables = Set<AnyCancellable>()
-    
+
     func startPolling() {
         timer?.cancel()
         let interval = max(5.0, currentRefreshInterval) // 最小不能低于5秒
@@ -52,81 +78,152 @@ class SportsViewModel: ObservableObject {
             self?.fetchGamesSafely()
         }
     }
-    
+
+    func stopPolling() {
+        timer?.cancel()
+        timer = nil
+    }
+
     private var isRequesting = false
     func fetchGamesSafely() {
+        // 只在NBA页面活跃时才请求
+        if !SportModeManager.shared.shouldFetch(sport: "nba") {
+            print("🔵 [SportsViewModel fetchGamesSafely] 跳过：NBA不是活跃页面")
+            return
+        }
+        if AppDelegate.isInBackgroundMode {
+            print("🔵 [SportsViewModel fetchGamesSafely] 跳过：后台静默模式")
+            return
+        }
         if isRequesting { return }
         isRequesting = true
+        print("🔵 [SportsViewModel fetchGamesSafely] 开始请求NBA数据")
         fetchGames()
     }
     
     func fetchGames() {
         DispatchQueue.main.async { self.isLoading = true }
-        
-        guard let url = URL(string: "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json") else {
+
+        // ESPN API endpoint
+        guard let url = URL(string: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard") else {
             isRequesting = false
             return
         }
-        
+
+        print("📡 [SportsViewModel fetchGames] Requesting ESPN scoreboard...")
+
         var request = URLRequest(url: url)
-        request.timeoutInterval = 8 // 设置较短的超时时间
-        
-        // 防爬伪装
+        request.timeoutInterval = 8
+
+        // ESPN headers
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json, text/plain, */*", forHTTPHeaderField: "Accept")
-        request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
-        request.setValue("https://www.nba.com/", forHTTPHeaderField: "Referer")
-        
-        // 使用一个短暂连接寿命的临时轻量级配置，避免连接堆积
+
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 15
         let session = URLSession(configuration: config)
-        
+
         session.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.isRequesting = false
             }
-            
-            guard let data = data, error == nil else {
-                print("❌ 网络请求失败或无数据")
+
+            if let error = error {
+                print("❌ [SportsViewModel fetchGames] network error: \(error.localizedDescription)")
                 return
             }
-            
+
+            guard let data = data, error == nil else {
+                print("❌ [SportsViewModel fetchGames] no data received")
+                return
+            }
+
+            print("📦 [SportsViewModel fetchGames] received \(data.count) bytes")
+
             do {
                 let decoder = JSONDecoder()
-                let result = try decoder.decode(NBAScoreboardResponse.self, from: data)
-                
-                let parsedGames = result.scoreboard.games.map { game in
-                    let statusText = game.gameStatus == 3 ? "final" : (game.gameStatus == 1 ? "scheduled" : "live")
-                    
-                    let homeTri = game.homeTeam.teamTricode
-                    let awayTri = game.awayTeam.teamTricode
-                    
+                let result = try decoder.decode(ESPNResponse.self, from: data)
+
+                print("📊 [SportsViewModel fetchGames] events count: \(result.events.count)")
+                for event in result.events {
+                    print("   event.id=\(event.id) home=\(event.competitions.first?.competitors.first { $0.homeAway == "home" }?.team.abbreviation ?? "?") away=\(event.competitions.first?.competitors.first { $0.homeAway == "away" }?.team.abbreviation ?? "?")")
+                }
+
+                let parsedGames = result.events.map { event in
+                    let competition = event.competitions.first!
+                    let homeTeam = competition.competitors.first { $0.homeAway == "home" }!
+                    let awayTeam = competition.competitors.first { $0.homeAway == "away" }!
+
+                    // ESPN tricode mapping
+                    let homeTri = homeTeam.team.abbreviation
+                    let awayTri = awayTeam.team.abbreviation
+
                     let homeTeamName = nbaTeamTranslation[homeTri] ?? homeTri
                     let awayTeamName = nbaTeamTranslation[awayTri] ?? awayTri
-                    // 使用 ESPN 的透明底高清图 (更适合 macOS UI)
-                    let homeLogo = "https://a.espncdn.com/i/teamlogos/nba/500/\(homeTri.lowercased()).png"
-                    let awayLogo = "https://a.espncdn.com/i/teamlogos/nba/500/\(awayTri.lowercased()).png"
-                    
+
+                    // Status determination
+                    let statusStr: String
+                    switch event.status.type.state {
+                    case "post": statusStr = "final"
+                    case "pre": statusStr = "scheduled"
+                    case "in": statusStr = "live"
+                    default: statusStr = event.status.type.state
+                    }
+
+                    // Period
+                    let period = event.status.period > 0 ? "Q\(event.status.period)" : ""
+
+                    // Series wins/losses from venue detail if available
+                    let homeSeriesWins = homeTeam.seriesWin
+                    let homeSeriesLosses = homeTeam.seriesLoss
+                    let awaySeriesWins = awayTeam.seriesWin
+                    let awaySeriesLosses = awayTeam.seriesLoss
+
+                    // Playoff series info
+                    let isPlayoff = competition.series?.type == "playoff"
+                    let seriesTotalGames = competition.series?.totalCompetitions
+
+                    // Get series wins from series.competitors (more accurate than competitor.seriesWin)
+                    var homeSeriesWinsFromSeries = homeSeriesWins
+                    var awaySeriesWinsFromSeries = awaySeriesWins
+                    if let seriesComps = competition.series?.competitors {
+                        for sc in seriesComps {
+                            if sc.id == homeTeam.team.id {
+                                homeSeriesWinsFromSeries = sc.wins
+                            } else if sc.id == awayTeam.team.id {
+                                awaySeriesWinsFromSeries = sc.wins
+                            }
+                        }
+                    }
+
                     return Game(
-                        id: game.gameId,
-                        status: statusText,
-                        time: game.gameStatusText,
-                        period: game.period > 0 ? "Q\(game.period)" : "",
-                        homeTeam: Team(id: String(game.homeTeam.teamId), name: homeTeamName, score: String(game.homeTeam.score), logo: homeLogo, tricode: homeTri, seriesWins: game.homeTeam.wins, seriesLosses: game.homeTeam.losses),
-                        awayTeam: Team(id: String(game.awayTeam.teamId), name: awayTeamName, score: String(game.awayTeam.score), logo: awayLogo, tricode: awayTri, seriesWins: game.awayTeam.wins, seriesLosses: game.awayTeam.losses),
-                        homeTeamSeriesWins: game.homeTeam.wins,
-                        homeTeamSeriesLosses: game.homeTeam.losses,
-                        awayTeamSeriesWins: game.awayTeam.wins,
-                        awayTeamSeriesLosses: game.awayTeam.losses
+                        id: event.id,
+                        status: statusStr,
+                        time: event.status.displayClock.isEmpty ? event.date : event.status.displayClock,
+                        period: period,
+                        homeTeam: Team(id: homeTeam.team.id, name: homeTeamName, score: homeTeam.score ?? "0", logo: homeTeam.team.logo, tricode: homeTri, seriesWins: homeSeriesWinsFromSeries, seriesLosses: nil),
+                        awayTeam: Team(id: awayTeam.team.id, name: awayTeamName, score: awayTeam.score ?? "0", logo: awayTeam.team.logo, tricode: awayTri, seriesWins: awaySeriesWinsFromSeries, seriesLosses: nil),
+                        homeTeamSeriesWins: homeSeriesWinsFromSeries,
+                        homeTeamSeriesLosses: nil,
+                        awayTeamSeriesWins: awaySeriesWinsFromSeries,
+                        awayTeamSeriesLosses: nil,
+                        isPlayoff: isPlayoff,
+                        seriesTotalGames: seriesTotalGames
                     )
                 }
-                
+
                 DispatchQueue.main.async {
                     print("🎨 成功拿到了 \(parsedGames.count) 场 NBA 数据！")
                     self.games = parsedGames
+
+                    // 更新缓存的置顶比赛
+                    if self.globalPinned.pinnedSport == "nba",
+                       let pinnedId = self.globalPinned.pinnedIdOnly,
+                       let game = parsedGames.first(where: { $0.id == pinnedId }) {
+                        self.globalPinned.cachedNBAGame = game
+                    }
                 }
             } catch {
                 print("💥 JSON 解析失败: \(error)")
@@ -147,6 +244,8 @@ struct Game: Identifiable, Equatable {
     let homeTeamSeriesLosses: Int?
     let awayTeamSeriesWins: Int?
     let awayTeamSeriesLosses: Int?
+    let isPlayoff: Bool
+    let seriesTotalGames: Int?
 }
 
 struct Team: Equatable {
@@ -154,36 +253,64 @@ struct Team: Equatable {
     let name: String
     let score: String
     let logo: String
-    let tricode: String?
+    let tricode: String
     let seriesWins: Int?
     let seriesLosses: Int?
 }
 
-// MARK: - 网络数据解析模型 (NBA 官方格式)
-struct NBAScoreboardResponse: Codable {
-    let scoreboard: NBAScoreboard
+// MARK: - ESPN API 数据模型
+struct ESPNResponse: Codable {
+    let events: [ESPNEvent]
 }
 
-struct NBAScoreboard: Codable {
-    let games: [NBAGame]
+struct ESPNEvent: Codable {
+    let id: String
+    let date: String
+    let status: ESPNStatus
+    let competitions: [ESPNCompetition]
 }
 
-struct NBAGame: Codable {
-    let gameId: String
-    let gameStatus: Int
-    let gameStatusText: String
+struct ESPNStatus: Codable {
     let period: Int
-    let homeTeam: NBATeam
-    let awayTeam: NBATeam
+    let displayClock: String
+    let type: ESPNStatusType
 }
 
-struct NBATeam: Codable {
-    let teamId: Int
-    let teamName: String
-    let teamTricode: String
-    let score: Int
-    let wins: Int? // 对应 JSON 中的 wins
-    let losses: Int? // 对应 JSON 中的 losses
+struct ESPNStatusType: Codable {
+    let state: String
+}
+
+struct ESPNCompetition: Codable {
+    let competitors: [ESPNCompetitor]
+    let series: ESPNSeries?
+}
+
+struct ESPNSeries: Codable {
+    let type: String
+    let completed: Bool
+    let totalCompetitions: Int
+    let competitors: [ESPNSeriesCompetitor]
+}
+
+struct ESPNSeriesCompetitor: Codable {
+    let id: String
+    let wins: Int
+}
+
+struct ESPNCompetitor: Codable {
+    let id: String
+    let homeAway: String
+    let team: ESPNTeam
+    let score: String?
+    let seriesWin: Int?
+    let seriesLoss: Int?
+}
+
+struct ESPNTeam: Codable {
+    let id: String
+    let abbreviation: String
+    let name: String
+    let logo: String
 }
 
 // MARK: - 球员名字翻译器
@@ -290,18 +417,31 @@ class PlayerTranslator {
     }
     
     func translate(firstName: String, familyName: String, fallback: String) -> String {
-        let fullName = "\(firstName) \(familyName)".trimmingCharacters(in: .whitespaces)
-        
+        // 直接用 displayName 作为完整名字来查找翻译（字典 key 是 "Jarrett Allen" 格式）
         var translated = fallback
-        
-        // 1. 最高优先级：FirstName + LastName 全名匹配
-        if let matched = dictionary[fullName] {
+
+        // 1. 最高优先级：直接用 fallback（通常是 displayName）匹配字典
+        if let matched = dictionary[fallback] {
             translated = matched
-        } else if let matched = uniqueFamilyNames[familyName] {
-            // 2. 次高优先级：特殊稀缺姓氏匹配
-            translated = matched
+            print("✅ [PlayerTranslator] matched fallback '\(fallback)' -> '\(translated)'")
+        } else if !familyName.isEmpty {
+            // 2. 次高优先级：FirstName + LastName 全名匹配
+            let fullName = "\(firstName) \(familyName)".trimmingCharacters(in: .whitespaces)
+            if let matched = dictionary[fullName] {
+                translated = matched
+                print("✅ [PlayerTranslator] matched fullName '\(fullName)' -> '\(translated)'")
+            } else if let matched = uniqueFamilyNames[familyName] {
+                // 3. 特殊稀缺姓氏匹配
+                translated = matched
+                print("✅ [PlayerTranslator] matched uniqueFamilyNames '\(familyName)' -> '\(translated)'")
+            }
         }
-        
+
+        // Debug logging
+        if translated == fallback {
+            print("⚠️ [PlayerTranslator] no translation for '\(fallback)', dictionary count=\(dictionary.count)")
+        }
+
         let showFullName = UserDefaults.standard.bool(forKey: "showFullName")
         
         // 按照用户设置过滤：如果用户只想要单名 (LastName) 且翻译字符串是以“·”间隔的，截取后半段

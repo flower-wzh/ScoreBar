@@ -12,37 +12,27 @@
 			containerPortal = 7BA025582F9710C90051C246 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 7BA0255F2F9710C90051C246;
-			remoteInfo = NBALiveScore;
+			remoteInfo = ScoreBar;
 		};
 		7BA0257C2F9710CA0051C246 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7BA025582F9710C90051C246 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 7BA0255F2F9710C90051C246;
-			remoteInfo = NBALiveScore;
+			remoteInfo = ScoreBar;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		7BA025602F9710C90051C246 /* NBALiveScore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NBALiveScore.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		7BA025712F9710CA0051C246 /* NBALiveScoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NBALiveScoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		7BA0257B2F9710CA0051C246 /* NBALiveScoreUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NBALiveScoreUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BA025602F9710C90051C246 /* ScoreBar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScoreBar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BA025712F9710CA0051C246 /* ScoreBarTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScoreBarTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7BA0257B2F9710CA0051C246 /* ScoreBarUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ScoreBarUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		7BA025622F9710C90051C246 /* NBALiveScore */ = {
+		7BA025622F9710C90051C246 /* ScoreBar */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = NBALiveScore;
-			sourceTree = "<group>";
-		};
-		7BA025742F9710CA0051C246 /* NBALiveScoreTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = NBALiveScoreTests;
-			sourceTree = "<group>";
-		};
-		7BA0257E2F9710CA0051C246 /* NBALiveScoreUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = NBALiveScoreUITests;
+			path = ScoreBar;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +65,7 @@
 		7BA025572F9710C90051C246 = {
 			isa = PBXGroup;
 			children = (
-				7BA025622F9710C90051C246 /* NBALiveScore */,
-				7BA025742F9710CA0051C246 /* NBALiveScoreTests */,
-				7BA0257E2F9710CA0051C246 /* NBALiveScoreUITests */,
+				7BA025622F9710C90051C246 /* ScoreBar */,
 				7BA025612F9710C90051C246 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -85,9 +73,9 @@
 		7BA025612F9710C90051C246 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7BA025602F9710C90051C246 /* NBALiveScore.app */,
-				7BA025712F9710CA0051C246 /* NBALiveScoreTests.xctest */,
-				7BA0257B2F9710CA0051C246 /* NBALiveScoreUITests.xctest */,
+				7BA025602F9710C90051C246 /* ScoreBar.app */,
+				7BA025712F9710CA0051C246 /* ScoreBarTests.xctest */,
+				7BA0257B2F9710CA0051C246 /* ScoreBarUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +83,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7BA0255F2F9710C90051C246 /* NBALiveScore */ = {
+		7BA0255F2F9710C90051C246 /* ScoreBar */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7BA025852F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScore" */;
+			buildConfigurationList = 7BA025852F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBar" */;
 			buildPhases = (
 				7BA0255C2F9710C90051C246 /* Sources */,
 				7BA0255D2F9710C90051C246 /* Frameworks */,
@@ -108,18 +96,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				7BA025622F9710C90051C246 /* NBALiveScore */,
+				7BA025622F9710C90051C246 /* ScoreBar */,
 			);
-			name = NBALiveScore;
+			name = ScoreBar;
 			packageProductDependencies = (
 			);
-			productName = NBALiveScore;
-			productReference = 7BA025602F9710C90051C246 /* NBALiveScore.app */;
+			productName = ScoreBar;
+			productReference = 7BA025602F9710C90051C246 /* ScoreBar.app */;
 			productType = "com.apple.product-type.application";
 		};
-		7BA025702F9710CA0051C246 /* NBALiveScoreTests */ = {
+		7BA025702F9710CA0051C246 /* ScoreBarTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7BA025882F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScoreTests" */;
+			buildConfigurationList = 7BA025882F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBarTests" */;
 			buildPhases = (
 				7BA0256D2F9710CA0051C246 /* Sources */,
 				7BA0256E2F9710CA0051C246 /* Frameworks */,
@@ -130,19 +118,16 @@
 			dependencies = (
 				7BA025732F9710CA0051C246 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				7BA025742F9710CA0051C246 /* NBALiveScoreTests */,
-			);
-			name = NBALiveScoreTests;
+			name = ScoreBarTests;
 			packageProductDependencies = (
 			);
-			productName = NBALiveScoreTests;
-			productReference = 7BA025712F9710CA0051C246 /* NBALiveScoreTests.xctest */;
+			productName = ScoreBarTests;
+			productReference = 7BA025712F9710CA0051C246 /* ScoreBarTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		7BA0257A2F9710CA0051C246 /* NBALiveScoreUITests */ = {
+		7BA0257A2F9710CA0051C246 /* ScoreBarUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7BA0258B2F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScoreUITests" */;
+			buildConfigurationList = 7BA0258B2F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBarUITests" */;
 			buildPhases = (
 				7BA025772F9710CA0051C246 /* Sources */,
 				7BA025782F9710CA0051C246 /* Frameworks */,
@@ -153,14 +138,11 @@
 			dependencies = (
 				7BA0257D2F9710CA0051C246 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				7BA0257E2F9710CA0051C246 /* NBALiveScoreUITests */,
-			);
-			name = NBALiveScoreUITests;
+			name = ScoreBarUITests;
 			packageProductDependencies = (
 			);
-			productName = NBALiveScoreUITests;
-			productReference = 7BA0257B2F9710CA0051C246 /* NBALiveScoreUITests.xctest */;
+			productName = ScoreBarUITests;
+			productReference = 7BA0257B2F9710CA0051C246 /* ScoreBarUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -171,7 +153,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1610;
-				LastUpgradeCheck = 1610;
+				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					7BA0255F2F9710C90051C246 = {
 						CreatedOnToolsVersion = 16.1;
@@ -200,9 +182,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7BA0255F2F9710C90051C246 /* NBALiveScore */,
-				7BA025702F9710CA0051C246 /* NBALiveScoreTests */,
-				7BA0257A2F9710CA0051C246 /* NBALiveScoreUITests */,
+				7BA0255F2F9710C90051C246 /* ScoreBar */,
+				7BA025702F9710CA0051C246 /* ScoreBarTests */,
+				7BA0257A2F9710CA0051C246 /* ScoreBarUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +240,12 @@
 /* Begin PBXTargetDependency section */
 		7BA025732F9710CA0051C246 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7BA0255F2F9710C90051C246 /* NBALiveScore */;
+			target = 7BA0255F2F9710C90051C246 /* ScoreBar */;
 			targetProxy = 7BA025722F9710CA0051C246 /* PBXContainerItemProxy */;
 		};
 		7BA0257D2F9710CA0051C246 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7BA0255F2F9710C90051C246 /* NBALiveScore */;
+			target = 7BA0255F2F9710C90051C246 /* ScoreBar */;
 			targetProxy = 7BA0257C2F9710CA0051C246 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -303,6 +285,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -322,7 +305,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -366,6 +349,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -379,7 +363,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 15.1;
+				MACOSX_DEPLOYMENT_TARGET = 14.6;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -392,12 +376,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = NBALiveScore/NBALiveScore.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ScoreBar/ScoreBar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"NBALiveScore/Preview Content\"";
-				DEVELOPMENT_TEAM = 9BL9PF29XL;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"ScoreBar/Preview Content\"";
+				DEVELOPMENT_TEAM = 5BFRAK9U4Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -408,7 +393,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScore;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBar;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -420,12 +405,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = NBALiveScore/NBALiveScore.entitlements;
+				CODE_SIGN_ENTITLEMENTS = ScoreBar/ScoreBar.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"NBALiveScore/Preview Content\"";
-				DEVELOPMENT_TEAM = 9BL9PF29XL;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_ASSET_PATHS = "\"ScoreBar/Preview Content\"";
+				DEVELOPMENT_TEAM = 5BFRAK9U4Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_LSUIElement = YES;
@@ -436,7 +422,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.4;
 				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScore;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBar;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -449,14 +435,15 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScoreTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBarTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NBALiveScore.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NBALiveScore";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ScoreBar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ScoreBar";
 			};
 			name = Debug;
 		};
@@ -466,14 +453,15 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.1;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScoreTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBarTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NBALiveScore.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/NBALiveScore";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ScoreBar.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ScoreBar";
 			};
 			name = Release;
 		};
@@ -482,13 +470,14 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScoreUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBarUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = NBALiveScore;
+				TEST_TARGET_NAME = ScoreBar;
 			};
 			name = Debug;
 		};
@@ -497,13 +486,14 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.hua.NBALiveScoreUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hua.ScoreBarUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = NBALiveScore;
+				TEST_TARGET_NAME = ScoreBar;
 			};
 			name = Release;
 		};
@@ -519,7 +509,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7BA025852F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScore" */ = {
+		7BA025852F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBar" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7BA025862F9710CA0051C246 /* Debug */,
@@ -528,7 +518,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7BA025882F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScoreTests" */ = {
+		7BA025882F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBarTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7BA025892F9710CA0051C246 /* Debug */,
@@ -537,7 +527,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7BA0258B2F9710CA0051C246 /* Build configuration list for PBXNativeTarget "NBALiveScoreUITests" */ = {
+		7BA0258B2F9710CA0051C246 /* Build configuration list for PBXNativeTarget "ScoreBarUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7BA0258C2F9710CA0051C246 /* Debug */,

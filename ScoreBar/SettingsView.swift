@@ -4,6 +4,7 @@ struct SettingsView: View {
     @AppStorage("refreshInterval") private var refreshInterval: Double = 10.0
     @AppStorage("showFullName") private var showFullName: Bool = false
     @AppStorage("playerDictUrl") private var playerDictUrl: String = ""
+    @AppStorage("selectedTheme") private var selectedTheme: String = AppTheme.purpleNight.rawValue
     @State private var updateMessage = ""
     @State private var isUpdating = false
     
@@ -94,8 +95,73 @@ struct SettingsView: View {
             .tabItem {
                 Label("数据源配置", systemImage: "network")
             }
+
+            // Theme Tab
+            Form {
+                Section {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach(AppTheme.allCases, id: \.self) { theme in
+                            HStack(spacing: 16) {
+                                // Theme preview gradient
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(LinearGradient(
+                                        gradient: Gradient(colors: theme.backgroundGradient),
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    ))
+                                    .frame(width: 60, height: 40)
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(theme.displayName)
+                                        .font(.headline)
+                                    Text(themeDescription(theme))
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                if selectedTheme == theme.rawValue {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.blue)
+                                        .font(.title2)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                selectedTheme = theme.rawValue
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(selectedTheme == theme.rawValue ? Color.blue.opacity(0.1) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(selectedTheme == theme.rawValue ? Color.blue.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .padding(20)
+            .frame(width: 450, height: 220)
+            .tabItem {
+                Label("主题", systemImage: "paintpalette")
+            }
         }
         .frame(width: 500)
+    }
+
+    func themeDescription(_ theme: AppTheme) -> String {
+        switch theme {
+        case .purpleNight: return "深紫+酒红渐变，当前默认风格"
+        case .midnightBlue: return "深蓝+深紫渐变，经典NBA配色"
+        case .pureWhite: return "浅色背景+蓝色点缀，清新护眼"
+        case .blackGold: return "纯黑+金色点缀，尊贵大气"
+        }
     }
     
     func fetchRemoteDictionary() {
