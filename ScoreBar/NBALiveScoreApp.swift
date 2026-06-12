@@ -81,7 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 拉取云端足球球员词典
         let savedSoccerDictUrl = UserDefaults.standard.string(forKey: "soccerPlayerDictUrl") ?? ""
-        let soccerDictUrl = savedSoccerDictUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/soccer_players.json" : savedSoccerDictUrl
+        let soccerDictUrl = savedSoccerDictUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/soccer_players.json" : savedSoccerDictUrl
 
         if let url = URL(string: soccerDictUrl) {
             var request = URLRequest(url: url)
@@ -107,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 拉取云端世界杯大名单翻译（2026 World Cup squads）
         let savedSquadsUrl = UserDefaults.standard.string(forKey: "worldCupSquadsUrl") ?? ""
-        let squadsUrl = savedSquadsUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/world_cup_squads_zh.json" : savedSquadsUrl
+        let squadsUrl = savedSquadsUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/world_cup_squads_zh.json" : savedSquadsUrl
         if let url = URL(string: squadsUrl) {
             var request = URLRequest(url: url)
             request.cachePolicy = .reloadIgnoringLocalCacheData
