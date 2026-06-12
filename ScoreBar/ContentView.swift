@@ -320,10 +320,16 @@ struct SoccerPinnedBannerView: View {
     private func formatGameTime(_ time: String) -> String {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: time) {
+        var date: Date? = formatter.date(from: time)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            date = formatter.date(from: time)
+        }
+        if let d = date {
             let displayFormatter = DateFormatter()
-            displayFormatter.dateFormat = "HH:mm"
-            return displayFormatter.string(from: date)
+            displayFormatter.dateFormat = "M月d日 HH:mm"
+            displayFormatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+            return displayFormatter.string(from: d)
         }
         return time
     }
@@ -678,10 +684,30 @@ struct GameRowView: View {
     }
 
     private var statusText: String {
-        let displayTime = (game.time == "0.0" || game.time == "0" || game.time.isEmpty) ? "已结束" : game.time
-        if game.status == "live" { return "直播中 • \(displayTime)" }
+        if game.status == "live" {
+            let displayTime = (game.time == "0.0" || game.time == "0" || game.time.isEmpty) ? "已结束" : game.time
+            return "直播中 • \(displayTime)"
+        }
         if game.status == "final" { return "已结束" }
-        return displayTime
+        // scheduled: time 字段是 ISO 开赛时间,用 formatGameTime 美化
+        return formatScheduledTime(game.time)
+    }
+
+    private func formatScheduledTime(_ time: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date: Date? = formatter.date(from: time)
+        if date == nil {
+            formatter.formatOptions = [.withInternetDateTime]
+            date = formatter.date(from: time)
+        }
+        if let d = date {
+            let displayFormatter = DateFormatter()
+            displayFormatter.dateFormat = "M月d日 HH:mm"
+            displayFormatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+            return displayFormatter.string(from: d)
+        }
+        return "未开赛"
     }
 
     private var scoreAndPinView: some View {

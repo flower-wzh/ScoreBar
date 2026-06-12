@@ -20,6 +20,7 @@ struct LiveBarNBAApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var viewModel = SportsViewModel()
     var soccerViewModel = SoccerViewModel()  // 用于状态栏显示足球置顶比赛
+    private var mainPopoverResignObserver: NSObjectProtocol?  // 监听主 popover 失焦
     private var cancellables = Set<AnyCancellable>()
 
     // 静默模式：软件在后台时激活，只刷新置顶比赛
@@ -100,6 +101,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         SoccerPlayerTranslator.shared.updateDictionary(newMapping)
                         print("📦 [AppDelegate] Loaded \(newMapping.count) soccer player translations from cloud")
                     }
+                }
+            }.resume()
+        }
+
+        // 拉取云端世界杯大名单翻译（2026 World Cup squads）
+        let savedSquadsUrl = UserDefaults.standard.string(forKey: "worldCupSquadsUrl") ?? ""
+        let squadsUrl = savedSquadsUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/world_cup_squads_zh.json" : savedSquadsUrl
+        if let url = URL(string: squadsUrl) {
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            URLSession.shared.dataTask(with: request) { data, _, _ in
+                guard let data = data,
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let teams = obj["teams"] as? [String: Any] else {
+                    return
+                }
+                var mapping: [String: String] = [:]
+                for (_, teamVal) in teams {
+                    guard let teamDict = teamVal as? [String: Any],
+                          let players = teamDict["players"] as? [[String: Any]] else { continue }
+                    for p in players {
+                        guard let en = p["en"] as? String,
+                              let zh = p["zh"] as? String,
+                              !zh.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+                        // source uses "SURNAME FirstName" — translator expects either form, so add both
+                        mapping[en] = zh
+                        // also add the reversed "FirstName SURNAME" form for compatibility
+                        let parts = en.split(separator: " ", maxSplits: 1)
+                        if parts.count == 2 {
+                            let reversed = "\(parts[1]) \(parts[0])"
+                            if mapping[reversed] == nil {
+                                mapping[reversed] = zh
+                            }
+                        }
+                    }
+                }
+                if !mapping.isEmpty {
+                    SoccerPlayerTranslator.shared.updateDictionary(mapping)
+                    print("📦 [AppDelegate] Loaded \(mapping.count) world cup squad translations from cloud")
                 }
             }.resume()
         }
@@ -193,28 +233,55 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         if pinnedSport == "nba", let gameId = pinnedIdOnly {
             print("🔵 [后台刷新] NBA置顶比赛: \(gameId)")
-            // NBA置顶比赛：调用完整的 fetchGames（和激活时一样的数据源，复用相同的解析逻辑）
-            viewModel.fetchGames()
+            // 后台走轻量 summary 端点,只刷新置顶比赛用于状态栏
+            // list 由回到前台 / 点开 popover 时主动 fetchGames() 刷新,不在后台持续拉
+            let url = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=\(gameId)"
+            self.fetchMinimalGame(urlString: url, sport: "nba", gameId: gameId)
         } else if pinnedSport == "soccer", let gameId = pinnedIdOnly {
             print("⚽ [后台刷新] 足球置顶比赛: \(gameId)")
             // 足球置顶比赛
             let league = soccerViewModel.currentLeague
             soccerViewModel.fetchSoccerGameDetail(eventId: gameId, league: league) { [weak self] detail in
                 if let detail = detail {
-                    print("⚽ [后台刷新] 足球详情获取成功: \(detail.homeScore) - \(detail.awayScore)")
+                    print("⚽ [后台刷新] 足球详情获取成功: \(detail.homeScore) - \(detail.awayScore), 状态=\(detail.status)/\(detail.statusDetail)")
+                    // 状态标准化：与 SoccerViewModel.fetchGames 保持一致 (post→final, pre→scheduled, in→live)
+                    let status: String
+                    switch detail.status {
+                    case "post": status = "final"
+                    case "pre": status = "scheduled"
+                    case "in": status = "live"
+                    default: status = detail.status
+                    }
+                    // period 走 SoccerViewModel.parseSoccerPeriod 同款逻辑
+                    // 用 state + detail 才能正确识别半场/全场 (ESPN 在这些时刻 displayClock 仍是定格分钟数)
+                    let period = self?.parseSoccerPeriodForBackground(
+                        displayClock: detail.statusDetail,
+                        state: detail.status,
+                        detail: detail.statusDetail
+                    ) ?? detail.statusDetail
+                    // time 字段: 半场/全场/未开始时替换为人话,避免显示定格时刻
+                    let timeText: String
+                    if detail.statusDetail == "HT" {
+                        timeText = "中场休息"
+                    } else if detail.status == "post" || detail.statusDetail == "FT" {
+                        timeText = "已结束"
+                    } else {
+                        timeText = detail.statusDetail
+                    }
                     // 更新缓存（在主线程）
                     let updatedGame = SoccerGame(
                         id: detail.id,
-                        status: detail.status,
-                        time: detail.statusDetail,
-                        period: detail.statusDetail,
+                        status: status,
+                        time: timeText,
+                        period: period,
                         homeTeam: SoccerTeam(
                             id: detail.homeTeam.id,
                             name: detail.homeTeam.name,
                             shortName: detail.homeTeam.shortName,
                             logo: detail.homeTeam.logo,
                             countryCode: detail.homeTeam.shortName,
-                            score: "\(detail.homeScore)"
+                            score: "\(detail.homeScore)",
+                            shootoutScore: detail.homePenaltyScore
                         ),
                         awayTeam: SoccerTeam(
                             id: detail.awayTeam.id,
@@ -222,7 +289,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                             shortName: detail.awayTeam.shortName,
                             logo: detail.awayTeam.logo,
                             countryCode: detail.awayTeam.shortName,
-                            score: "\(detail.awayScore)"
+                            score: "\(detail.awayScore)",
+                            shootoutScore: detail.awayPenaltyScore
                         ),
                         competition: detail.league,
                         leagueId: league.rawValue
@@ -353,7 +421,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func setupStatusBar() {
         let popover = NSPopover()
         popover.contentSize = NSSize(width: 360, height: 480)
-        popover.behavior = .transient
+        // .applicationDefined: 不在鼠标移出时自动关闭，由 AppDelegate 自行管理
+        // (togglePopover 调用 performClose 时仍可关闭)，这样 popover 内的 SwiftUI 视图
+        // 可以接收 onHover 等鼠标事件而不会被打断
+        popover.behavior = .applicationDefined
         // Use an external coordinator to safely host the swiftui popover
         popover.contentViewController = NSHostingController(
             rootView: ContentView().environmentObject(viewModel)
@@ -394,6 +465,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.updateStatusBarForPinnedGame()
             }
             .store(in: &cancellables)
+
+        // Observe cached games - 后台静默刷新会直接更新这两个缓存,
+        // 这里必须监听才能让状态栏在没有 popover 交互的情况下自动重绘
+        GlobalPinnedGameManager.shared.$cachedNBAGame
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusBarForPinnedGame()
+            }
+            .store(in: &cancellables)
+
+        GlobalPinnedGameManager.shared.$cachedSoccerGame
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusBarForPinnedGame()
+            }
+            .store(in: &cancellables)
     }
 
     // 根据全局置顶状态更新状态栏
@@ -426,12 +513,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         } else if pinnedSport == "soccer" {
-            // 足球置顶
-            if let game = soccerViewModel.games.first(where: { $0.id == pinnedIdOnly }) {
-                updateStatusBarWithSoccerGame(game)
-            } else if let cachedGame = GlobalPinnedGameManager.shared.cachedSoccerGame, cachedGame.id == pinnedIdOnly {
-                // 使用缓存的比赛
+            // 足球置顶：优先用 cachedSoccerGame (后台静默刷新会持续更新它,数据最新),
+            // 仅当缓存为空/不匹配时,才回退到 soccerViewModel.games (前台主轮询数据,失活后会停滞)
+            if let cachedGame = GlobalPinnedGameManager.shared.cachedSoccerGame, cachedGame.id == pinnedIdOnly {
                 updateStatusBarWithSoccerGame(cachedGame)
+            } else if let game = soccerViewModel.games.first(where: { $0.id == pinnedIdOnly }) {
+                updateStatusBarWithSoccerGame(game)
             } else {
                 // 足球但没找到比赛
                 showDefaultStatusBar()
@@ -592,8 +679,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let awayScore = game.status == "scheduled" ? "-" : "\(game.awayTeam.score)"
         let homeScore = game.status == "scheduled" ? "-" : "\(game.homeTeam.score)"
+        // 点球大战比分显示
+        let awayScoreDisplay = formatSoccerScoreWithShootout(
+            score: game.awayTeam.score,
+            shootoutScore: game.awayTeam.shootoutScore
+        )
+        let homeScoreDisplay = formatSoccerScoreWithShootout(
+            score: game.homeTeam.score,
+            shootoutScore: game.homeTeam.shootoutScore
+        )
 
-        let image = generateStatusBarImage(leftName: homeName, rightName: awayName, periodStr: periodStr, clockStr: clockStr, leftScore: homeScore, rightScore: awayScore)
+        let image = generateStatusBarImage(leftName: homeName, rightName: awayName, periodStr: periodStr, clockStr: clockStr, leftScore: homeScoreDisplay, rightScore: awayScoreDisplay)
 
         button.image = image
         button.imagePosition = .imageOnly
@@ -658,6 +754,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let popover = globalPopover, let button = globalStatusItem?.button else { return }
 
         if popover.isShown {
+            // 关闭时移除失焦监听
+            if let observer = mainPopoverResignObserver {
+                NotificationCenter.default.removeObserver(observer)
+                mainPopoverResignObserver = nil
+            }
+            // 主 popover 关闭时,关闭 Soccer 详情窗口(它的显示状态依赖列表行 hover)
+            SoccerFloatingPopoverManager.shared.hideDetail()
             popover.performClose(sender)
         } else {
             NSApp.activate(ignoringOtherApps: true)
@@ -669,10 +772,52 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 globalPopoverFrame = window.frame
             }
 
+            // 监听主 popover 失焦: 用户点击其他 app/窗口时自动关闭
+            // 但 Soccer 详情 (nonactivating NSPanel) 不会让主 popover resignKey,
+            // 所以详情打开时主 popover 不会因详情失焦而关
+            if mainPopoverResignObserver == nil, let window = popover.contentViewController?.view.window {
+                mainPopoverResignObserver = NotificationCenter.default.addObserver(
+                    forName: NSWindow.didResignKeyNotification,
+                    object: window,
+                    queue: .main
+                ) { _ in
+                    // Soccer 详情打开时,保留主 popover(让用户在列表上继续操作)
+                    if SoccerFloatingPopoverManager.shared.currentDetail == nil {
+                        globalPopover?.performClose(nil)
+                    }
+                }
+            }
+
             // 打开时刷新数据
             print("🟢 [Popover] 打开时刷新数据")
             self.viewModel.fetchGames()
             self.soccerViewModel.fetchGames()
         }
+    }
+
+    // 格式化带点球的足球比分，如 "1(4)" 或 "1"
+    private func formatSoccerScoreWithShootout(score: String, shootoutScore: Int?) -> String {
+        if let shootout = shootoutScore {
+            return "\(score)(\(shootout))"
+        }
+        return score
+    }
+
+    // 与 SoccerViewModel.parseSoccerPeriod 保持一致：
+    // 把 ESPN displayClock ("45'" / "HT" / "FT") 翻译成可读的中文 period
+    // 半场/全场必须用 state + detail 判定 (ESPN 此时 displayClock 仍是定格分钟数)
+    private func parseSoccerPeriodForBackground(displayClock: String, state: String, detail: String) -> String {
+        if detail == "HT" { return "半场" }
+        if state == "post" || detail == "FT" { return "全场" }
+        if displayClock.hasSuffix("'") {
+            // 从 "45'+3'" 提取基础分钟数 45;处理补时格式
+            let base = displayClock.replacingOccurrences(of: "'", with: "")
+            let numericPrefix = base.prefix { $0.isNumber }
+            if let min = Int(numericPrefix) {
+                if min <= 45 { return "上半场" }
+                else { return "下半场" }
+            }
+        }
+        return displayClock
     }
 }

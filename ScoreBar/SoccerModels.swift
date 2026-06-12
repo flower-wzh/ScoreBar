@@ -52,6 +52,8 @@ struct SoccerDetailData: Identifiable {
     let broadcasts: [SoccerBroadcast]  // 转播信息
     let statistics: [SoccerTeamStatItem]  // 球队统计对比
     let keyEvents: [SoccerKeyEvent]  // 关键事件
+    var homePenaltyScore: Int?  // 点球大战得分（如4）
+    var awayPenaltyScore: Int?  // 点球大战得分（如3）
 }
 
 struct SoccerDetailTeam: Identifiable {
@@ -93,10 +95,12 @@ struct SoccerTeamStatItem: Identifiable {
 struct SoccerKeyEvent: Identifiable {
     let id: String
     let type: EventType  // "goal", "yellowCard", "redCard", "substitution"
-    let team: String  // 球队缩写
+    let team: String  // 球队全称
+    let teamAbbr: String?  // 球队缩写（可能为空）
+    let isHome: Bool  // 是否主队（创建时根据 team.id 标记,避免事后用中英文名匹配不可靠）
     let player: String  // 球员名称
     let minute: String?  // 时间，如 "45+2"
-    let additionalInfo: String?  // 附加信息，如 "Penalty"
+    let additionalInfo: String?  // 附加信息，如换人描述 "PlayerA replaces PlayerB"
 }
 
 enum EventType: String {
@@ -242,6 +246,7 @@ struct SoccerTeam: Equatable {
     let logo: String
     let countryCode: String  // 用于本地国旗加载，如 "MEX", "RSA"
     let score: String
+    var shootoutScore: Int?  // 点球大战得分，如 4（当比赛进入点球大战时非nil）
 }
 
 // MARK: - 足球联赛枚举
@@ -378,11 +383,17 @@ let soccerStatTranslation: [String: String] = [
     "Possession": "控球率",
     "Shots": "射门",
     "Shots On Target": "射正",
-    "Fouls": "犯规",
-    "Corners": "角球",
-    "Offsides": "越位",
     "Yellow Cards": "黄牌",
-    "Red Cards": "红牌"
+    "Corners": "角球",
+    "Saves": "扑救",
+    "Fouls": "犯规",
+    "Offsides": "越位",
+    "Red Cards": "红牌",
+    "totalShots": "射门",
+    "shotsOnTarget": "射正",
+    "wonCorners": "角球",
+    "yellowCards": "黄牌",
+    "possessionPct": "控球率"
 ]
 
 // MARK: - 足球事件类型翻译
@@ -712,6 +723,7 @@ struct SoccerAPICompetitor: Codable {
     let team: SoccerAPITeam
     let score: String?
     let form: String?
+    let shootoutScore: Int?  // 点球大战得分，如 4
 }
 
 struct SoccerAPIOdds: Codable {

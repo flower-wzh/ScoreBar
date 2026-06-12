@@ -2,6 +2,13 @@ import Foundation
 import Combine
 import SwiftUI
 
+// 时间戳辅助函数
+func timestamp() -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss.SSS"
+    return formatter.string(from: Date())
+}
+
 let nbaTeamTranslation: [String: String] = [
     "ATL": "老鹰", "BOS": "凯尔特人", "BKN": "篮网", "CHA": "黄蜂", "CHI": "公牛",
     "CLE": "骑士", "DAL": "独行侠", "DEN": "掘金", "DET": "活塞", "GSW": "勇士",
@@ -85,6 +92,8 @@ class SportsViewModel: ObservableObject {
     }
 
     private var isRequesting = false
+    private var lastRequestTime: Date? = nil  // 上次请求时间
+    private let minRequestInterval: TimeInterval = 2.0  // 最小请求间隔2秒
     func fetchGamesSafely() {
         // 只在NBA页面活跃时才请求
         if !SportModeManager.shared.shouldFetch(sport: "nba") {
@@ -97,20 +106,34 @@ class SportsViewModel: ObservableObject {
         }
         if isRequesting { return }
         isRequesting = true
-        print("🔵 [SportsViewModel fetchGamesSafely] 开始请求NBA数据")
+        print("🔵 [\(timestamp()) SportsViewModel fetchGamesSafely] 开始请求NBA数据")
         fetchGames()
     }
-    
+
+    private var isFetchingDirectly = false  // 防止 init 中直接调用 fetchGames 导致的重复
     func fetchGames() {
+        // 防止重复请求（直接调用和定时器调用可能并发）
+        if isFetchingDirectly { return }
+        if isRequesting { return }
+        // 防止请求过快（间隔小于2秒直接跳过）
+        if let lastTime = lastRequestTime, Date().timeIntervalSince(lastTime) < minRequestInterval {
+            isRequesting = false  // 重置状态，因为没有真正发起请求
+            print("🔵 [SportsViewModel fetchGames] 跳过：请求过于频繁 \(String(format: "%.1f", Date().timeIntervalSince(lastTime)))s < \(minRequestInterval)s")
+            return
+        }
+        isFetchingDirectly = true
+        lastRequestTime = Date()
+
         DispatchQueue.main.async { self.isLoading = true }
 
         // ESPN API endpoint
         guard let url = URL(string: "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard") else {
             isRequesting = false
+            isFetchingDirectly = false
             return
         }
 
-        print("📡 [SportsViewModel fetchGames] Requesting ESPN scoreboard...")
+        print("📡 [\(timestamp()) SportsViewModel fetchGames] Requesting ESPN scoreboard...")
 
         var request = URLRequest(url: url)
         request.timeoutInterval = 8
@@ -128,6 +151,7 @@ class SportsViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.isRequesting = false
+                self.isFetchingDirectly = false
             }
 
             if let error = error {
@@ -201,7 +225,9 @@ class SportsViewModel: ObservableObject {
                     return Game(
                         id: event.id,
                         status: statusStr,
-                        time: event.status.displayClock.isEmpty ? event.date : event.status.displayClock,
+                        // 未开赛时 ESPN 返回 displayClock="0.0" (不是空),误用它会让 statusText 误判为"已结束"。
+                        // 用 event.date (ISO8601 开赛时间) 才正确
+                        time: statusStr == "scheduled" ? event.date : event.status.displayClock,
                         period: period,
                         homeTeam: Team(id: homeTeam.team.id, name: homeTeamName, score: homeTeam.score ?? "0", logo: homeTeam.team.logo, tricode: homeTri, seriesWins: homeSeriesWinsFromSeries, seriesLosses: nil),
                         awayTeam: Team(id: awayTeam.team.id, name: awayTeamName, score: awayTeam.score ?? "0", logo: awayTeam.team.logo, tricode: awayTri, seriesWins: awaySeriesWinsFromSeries, seriesLosses: nil),

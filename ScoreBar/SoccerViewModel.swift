@@ -156,7 +156,24 @@ class SoccerViewModel: ObservableObject {
                     }
 
                     // Period - convert displayClock to readable format
-                    let period = self.parseSoccerPeriod(event.status.displayClock)
+                    // ESPN 在半场 / 全场时 displayClock 仍停留在定格时刻 (45'+3' / 90'+8'),
+                    // 真正的半场/全场标志是 status.type.detail ("HT" / "FT"),必须优先用它
+                    let period = self.parseSoccerPeriod(
+                        displayClock: event.status.displayClock,
+                        state: event.status.type.state,
+                        detail: event.status.type.detail
+                    )
+                    // time 字段在半场/全场/未开始时也要替换为人话,避免显示定格时刻 45'+3'
+                    let timeText: String
+                    if event.status.type.detail == "HT" {
+                        timeText = "中场休息"
+                    } else if event.status.type.state == "post" || event.status.type.detail == "FT" {
+                        timeText = "已结束"
+                    } else if event.status.type.state == "pre" {
+                        timeText = event.status.displayClock
+                    } else {
+                        timeText = event.status.displayClock
+                    }
 
                     // Parse match date - format the date for display
                     let matchDate = self.formatMatchDate(event.date)
@@ -181,7 +198,7 @@ class SoccerViewModel: ObservableObject {
                     return SoccerGame(
                         id: event.id,
                         status: statusStr,
-                        time: event.status.displayClock,
+                        time: timeText,
                         period: period,
                         homeTeam: SoccerTeam(
                             id: homeTeam.team.id,
@@ -189,7 +206,8 @@ class SoccerViewModel: ObservableObject {
                             shortName: homeShortName,
                             logo: homeTeam.team.logo,
                             countryCode: homeShortName,
-                            score: homeTeam.score ?? "0"
+                            score: homeTeam.score ?? "0",
+                            shootoutScore: homeTeam.shootoutScore
                         ),
                         awayTeam: SoccerTeam(
                             id: awayTeam.team.id,
@@ -197,7 +215,8 @@ class SoccerViewModel: ObservableObject {
                             shortName: awayShortName,
                             logo: awayTeam.team.logo,
                             countryCode: awayShortName,
-                            score: awayTeam.score ?? "0"
+                            score: awayTeam.score ?? "0",
+                            shootoutScore: awayTeam.shootoutScore
                         ),
                         competition: self.currentLeague.displayName,
                         leagueId: self.currentLeague.rawValue,
@@ -227,12 +246,15 @@ class SoccerViewModel: ObservableObject {
         }.resume()
     }
 
-    private func parseSoccerPeriod(_ displayClock: String) -> String {
-        if displayClock == "HT" { return "半场" }
-        if displayClock == "FT" { return "全场" }
+    private func parseSoccerPeriod(displayClock: String, state: String, detail: String) -> String {
+        // 半场/全场标志来自 status.type.detail (ESPN 在这些时刻 displayClock 仍是定格分钟数,如 45'+3' / 90'+8')
+        if detail == "HT" { return "半场" }
+        if state == "post" || detail == "FT" { return "全场" }
         if displayClock.hasSuffix("'") {
-            let minute = displayClock.replacingOccurrences(of: "'", with: "")
-            if let min = Int(minute) {
+            // 从 "45'+3'" 提取基础分钟数 45;处理补时格式
+            let base = displayClock.replacingOccurrences(of: "'", with: "")
+            let numericPrefix = base.prefix { $0.isNumber }
+            if let min = Int(numericPrefix) {
                 if min <= 45 { return "上半场" }
                 else { return "下半场" }
             }
@@ -387,6 +409,10 @@ class SoccerViewModel: ObservableObject {
         let homeScore = Int(homeCompetitor?["score"] as? String ?? "0") ?? 0
         let awayScore = Int(awayCompetitor?["score"] as? String ?? "0") ?? 0
 
+        // Parse penalty shootout scores
+        let homePenaltyScore: Int? = (homeCompetitor?["shootoutScore"] as? NSNumber)?.intValue
+        let awayPenaltyScore: Int? = (awayCompetitor?["shootoutScore"] as? NSNumber)?.intValue
+
         // Parse match date
         let matchDateStr = competition?["date"] as? String ?? ""
         let matchDate = formatMatchDate(matchDateStr)
@@ -421,9 +447,9 @@ class SoccerViewModel: ObservableObject {
             let homeTeamStats = teams.first { ($0["homeAway"] as? String) == "home" }?["statistics"] as? [[String: Any]] ?? []
             let awayTeamStats = teams.first { ($0["homeAway"] as? String) == "away" }?["statistics"] as? [[String: Any]] ?? []
 
-            // Key stats to display: possession, shots, shotsOnTarget, fouls, corners, offsides, yellowCards, redCards
-            let keyStats = ["possessionPct", "totalShots", "shotsOnTarget", "foulsCommitted", "wonCorners", "offsides", "yellowCards", "redCards"]
-            let statLabels = ["Possession", "Shots", "Shots On Target", "Fouls", "Corners", "Offsides", "Yellow Cards", "Red Cards"]
+            // Key stats to display (matching image layout): Possession, Shots on Goal, Shots, Yellow Cards, Corners, Saves
+            let keyStats = ["possessionPct", "shotsOnTarget", "totalShots", "yellowCards", "wonCorners", "saves"]
+            let statLabels = ["Possession", "Shots On Goal", "Shots", "Yellow Cards", "Corner Kicks", "Saves"]
 
             for (i, statName) in keyStats.enumerated() {
                 let homeStat = homeTeamStats.first { ($0["name"] as? String) == statName }
@@ -451,24 +477,39 @@ class SoccerViewModel: ObservableObject {
                 let type = typeRaw.lowercased()
 
                 // 判断是否是事件类型（goal, yellow card, red card, substitution）
-                // 包含 goal（可能有后缀如 goal---header）、yellowcard/yellow-card、redcard/red-card、substitution
+                // 包含 goal（可能有后缀如 goal---header）、penalty---scored、yellowcard/yellow-card、redcard/red-card、substitution
                 let isGoal = type.contains("goal")
+                let isPenalty = type.contains("penalty")
                 let isYellowCard = type.contains("yellow") && type.contains("card")
                 let isRedCard = type.contains("red") && type.contains("card")
                 let isSubstitution = type.contains("substitution")
 
-                if isGoal || isYellowCard || isRedCard || isSubstitution {
+                if isGoal || isPenalty || isYellowCard || isRedCard || isSubstitution {
                     let teamInfo = event["team"] as? [String: Any]
                     let clockInfo = event["clock"] as? [String: Any]
                     let participants = event["participants"] as? [[String: Any]]
-                    let athleteInfo = participants?.first?["athlete"] as? [String: Any]
 
-                    // 确定事件类型枚举（处理各种格式：goal, goal---header, yellow-card, yellowcard, red-card, redcard）
+                    // 换人事件有2个参与者：participants[0]=换上球员, participants[1]=被换下球员
+                    // 其他事件只有1个参与者
+                    var playerName = ""
+                    var additionalInfoText: String? = nil
+
+                    if isSubstitution {
+                        let athleteIn = participants?.first?["athlete"] as? [String: Any]
+                        playerName = athleteIn?["displayName"] as? String ?? ""
+                        // additionalInfo 存储完整的换人描述，如 "Jurriën Timber replaces Cristhian Mosquera"
+                        additionalInfoText = event["text"] as? String
+                    } else {
+                        let athleteInfo = participants?.first?["athlete"] as? [String: Any]
+                        playerName = athleteInfo?["displayName"] as? String ?? ""
+                        additionalInfoText = typeInfo?["text"] as? String
+                    }
+
+                    // 确定事件类型枚举
                     let eventType: EventType
-                    if isGoal {
+                    if isGoal || isPenalty {
                         eventType = .goal
                     } else if isYellowCard {
-                        // yellow-card 或 yellowcard 都归一为 yellowCard（用于显示匹配）
                         eventType = .yellowCard
                     } else if isRedCard {
                         eventType = .redCard
@@ -476,13 +517,18 @@ class SoccerViewModel: ObservableObject {
                         eventType = .substitution
                     }
 
+                    // 对于换人事件，player 字段存储换上球员，additionalInfo 存储完整描述
+                    let eventTeamId = teamInfo?["id"] as? String
+                    let isHome = eventTeamId == homeTeam.id
                     let keyEvent = SoccerKeyEvent(
                         id: event["id"] as? String ?? UUID().uuidString,
                         type: eventType,
-                        team: teamInfo?["abbreviation"] as? String ?? "",
-                        player: athleteInfo?["displayName"] as? String ?? "",
+                        team: teamInfo?["displayName"] as? String ?? "",
+                        teamAbbr: teamInfo?["abbreviation"] as? String,
+                        isHome: isHome,
+                        player: playerName,
                         minute: clockInfo?["displayValue"] as? String,
-                        additionalInfo: typeInfo?["text"] as? String
+                        additionalInfo: additionalInfoText
                     )
                     keyEvents.append(keyEvent)
                 }
@@ -614,7 +660,9 @@ class SoccerViewModel: ObservableObject {
             attendance: attendance,
             broadcasts: broadcasts,
             statistics: statistics,
-            keyEvents: keyEvents
+            keyEvents: keyEvents,
+            homePenaltyScore: homePenaltyScore,
+            awayPenaltyScore: awayPenaltyScore
         )
     }
 
