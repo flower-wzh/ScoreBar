@@ -81,96 +81,86 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 拉取云端足球球员词典
         let savedSoccerDictUrl = UserDefaults.standard.string(forKey: "soccerPlayerDictUrl") ?? ""
-        let soccerDictUrl = savedSoccerDictUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/soccer_players.json" : savedSoccerDictUrl
-
-        if let url = URL(string: soccerDictUrl) {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            URLSession.shared.dataTask(with: request) { data, _, _ in
-                if let data = data,
-                   let soccerObj = try? JSONSerialization.jsonObject(with: data) as? [String: [String: [String: String]]] {
-                    var newMapping: [String: String] = [:]
-                    for (_, teams) in soccerObj {
-                        for (_, players) in teams {
-                            for (fullName, zhName) in players {
-                                newMapping[fullName] = zhName
-                            }
-                        }
-                    }
-                    if !newMapping.isEmpty {
-                        SoccerPlayerTranslator.shared.updateDictionary(newMapping)
-                        print("📦 [AppDelegate] Loaded \(newMapping.count) soccer player translations from cloud")
+        let soccerDictPrimary = savedSoccerDictUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/soccer_players.json" : savedSoccerDictUrl
+        let soccerDictFallback = "https://raw.githubusercontent.com/flower-wzh/ScoreBar/main/ScoreBar/data/soccer_players.json"
+        fetchJSONData(primary: soccerDictPrimary, fallback: soccerDictFallback, label: "soccer_players.json") { data in
+            guard let data = data,
+                  let soccerObj = try? JSONSerialization.jsonObject(with: data) as? [String: [String: [String: String]]] else { return }
+            var newMapping: [String: String] = [:]
+            for (_, teams) in soccerObj {
+                for (_, players) in teams {
+                    for (fullName, zhName) in players {
+                        newMapping[fullName] = zhName
                     }
                 }
-            }.resume()
+            }
+            if !newMapping.isEmpty {
+                SoccerPlayerTranslator.shared.updateDictionary(newMapping)
+                print("📦 [AppDelegate] Loaded \(newMapping.count) soccer player translations from cloud")
+            }
         }
 
         // 拉取云端世界杯大名单翻译（2026 World Cup squads）
         let savedSquadsUrl = UserDefaults.standard.string(forKey: "worldCupSquadsUrl") ?? ""
-        let squadsUrl = savedSquadsUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/world_cup_squads_zh.json" : savedSquadsUrl
-        if let url = URL(string: squadsUrl) {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            URLSession.shared.dataTask(with: request) { data, _, _ in
-                guard let data = data,
-                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let teams = obj["teams"] as? [String: Any] else {
-                    return
-                }
-                var mapping: [String: String] = [:]
-                for (_, teamVal) in teams {
-                    guard let teamDict = teamVal as? [String: Any],
-                          let players = teamDict["players"] as? [[String: Any]] else { continue }
-                    for p in players {
-                        guard let en = p["en"] as? String,
-                              let zh = p["zh"] as? String,
-                              !zh.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
-                        // source uses "SURNAME FirstName" — translator expects either form, so add both
-                        mapping[en] = zh
-                        // also add the reversed "FirstName SURNAME" form for compatibility
-                        let parts = en.split(separator: " ", maxSplits: 1)
-                        if parts.count == 2 {
-                            let reversed = "\(parts[1]) \(parts[0])"
-                            if mapping[reversed] == nil {
-                                mapping[reversed] = zh
-                            }
+        let squadsPrimary = savedSquadsUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/world_cup_squads_zh.json" : savedSquadsUrl
+        let squadsFallback = "https://raw.githubusercontent.com/flower-wzh/ScoreBar/main/ScoreBar/data/world_cup_squads_zh.json"
+        fetchJSONData(primary: squadsPrimary, fallback: squadsFallback, label: "world_cup_squads_zh.json") { data in
+            guard let data = data,
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let teams = obj["teams"] as? [String: Any] else { return }
+            var mapping: [String: String] = [:]
+            for (_, teamVal) in teams {
+                guard let teamDict = teamVal as? [String: Any],
+                      let players = teamDict["players"] as? [[String: Any]] else { continue }
+                for p in players {
+                    guard let en = p["en"] as? String,
+                          let zh = p["zh"] as? String,
+                          !zh.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
+                    // source uses "SURNAME FirstName" — translator expects "FirstName LastName" form
+                    mapping[en] = zh
+                    // also add the reversed "FirstName LastName" form (proper case, not all-caps)
+                    // because ESPN API returns displayName as "FirstName LastName" with title case
+                    let parts = en.split(separator: " ", maxSplits: 1)
+                    if parts.count == 2 {
+                        // Title-case each part so it matches ESPN's "Bukayo Saka" style
+                        let first = parts[1].capitalized   // "JUAN" -> "Juan"
+                        let last = parts[0].capitalized    // "MUSSO" -> "Musso"
+                        let reversed = "\(first) \(last)"
+                        if mapping[reversed] == nil {
+                            mapping[reversed] = zh
                         }
                     }
                 }
-                if !mapping.isEmpty {
-                    SoccerPlayerTranslator.shared.updateDictionary(mapping)
-                    print("📦 [AppDelegate] Loaded \(mapping.count) world cup squad translations from cloud")
-                }
-            }.resume()
+            }
+            if !mapping.isEmpty {
+                SoccerPlayerTranslator.shared.updateDictionary(mapping)
+                print("📦 [AppDelegate] Loaded \(mapping.count) world cup squad translations from cloud")
+            }
         }
 
         // 2. App冷启动：自动拉取一次云端词典 (如果配置了 URL)
         let savedUrl = UserDefaults.standard.string(forKey: "playerDictUrl") ?? ""
-        let dictUrl = savedUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/NBALiveScore/raw/refs/heads/main/NBALiveScore/data/players.json" : savedUrl
-        
-        if let url = URL(string: dictUrl) {
-            var request = URLRequest(url: url)
-            request.cachePolicy = .reloadIgnoringLocalCacheData
-            URLSession.shared.dataTask(with: request) { data, _, _ in
-                if let data = data, let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let players = obj["players"] as? [[String: Any]] {
-                    
-                    var newMapping: [String: String] = [:]
-                    for player in players {
-                        if let displayName = player["displayName"] as? String,
-                           let lastName = player["lastName"] as? String,
-                           let firstName = player["firstName"] as? String {
-                            let zhName = firstName.isEmpty ? lastName : "\(firstName)·\(lastName)"
-                            newMapping[displayName] = zhName.trimmingCharacters(in: .whitespaces)
-                        }
+        let nbaDictPrimary = savedUrl.isEmpty ? "https://github.rzdpai.com/gh/flower-wzh/ScoreBar/raw/refs/heads/main/ScoreBar/data/players.json" : savedUrl
+        let nbaDictFallback = "https://raw.githubusercontent.com/flower-wzh/ScoreBar/main/ScoreBar/data/players.json"
+        fetchJSONData(primary: nbaDictPrimary, fallback: nbaDictFallback, label: "players.json") { data in
+            guard let data = data else { return }
+            if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let players = obj["players"] as? [[String: Any]] {
+                var newMapping: [String: String] = [:]
+                for player in players {
+                    if let displayName = player["displayName"] as? String,
+                       let lastName = player["lastName"] as? String,
+                       let firstName = player["firstName"] as? String {
+                        let zhName = firstName.isEmpty ? lastName : "\(firstName)·\(lastName)"
+                        newMapping[displayName] = zhName.trimmingCharacters(in: .whitespaces)
                     }
-                    if !newMapping.isEmpty {
-                        PlayerTranslator.shared.updateCustomMapping(newMapping)
-                    }
-                } else if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
-                    PlayerTranslator.shared.updateCustomMapping(json)
                 }
-            }.resume()
+                if !newMapping.isEmpty {
+                    PlayerTranslator.shared.updateCustomMapping(newMapping)
+                }
+            } else if let json = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                PlayerTranslator.shared.updateCustomMapping(json)
+            }
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -178,6 +168,35 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self.setupObservers()
             self.setupBackgroundObservers()
         }
+    }
+
+    // MARK: - 网络加载 helper：primary 失败时回退到 fallback
+    private func fetchJSONData(primary: String, fallback: String, label: String, completion: @escaping (Data?) -> Void) {
+        func attempt(_ urlString: String, isFallback: Bool) {
+            guard let url = URL(string: urlString) else {
+                completion(nil)
+                return
+            }
+            var request = URLRequest(url: url)
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            request.timeoutInterval = 8
+            URLSession.shared.dataTask(with: request) { data, response, error in
+                if let data = data, error == nil,
+                   let http = response as? HTTPURLResponse, http.statusCode == 200 {
+                    if isFallback {
+                        print("📦 [AppDelegate] \(label) loaded via fallback URL")
+                    }
+                    completion(data)
+                } else if !isFallback {
+                    print("⚠️ [AppDelegate] \(label) primary URL failed (\(error?.localizedDescription ?? "no response")), trying fallback")
+                    attempt(fallback, isFallback: true)
+                } else {
+                    print("❌ [AppDelegate] \(label) both primary and fallback failed")
+                    completion(nil)
+                }
+            }.resume()
+        }
+        attempt(primary, isFallback: false)
     }
 
     func setupBackgroundObservers() {
