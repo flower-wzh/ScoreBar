@@ -585,7 +585,37 @@ class SoccerPlayerTranslator {
         "Tomiyasu": "富安健洋",
         "Tierney": "蒂尔尼",
         "Smith Rowe": "史密斯·罗",
-        "Trossard": "特罗萨德"
+        "Trossard": "特罗萨德",
+        // 2026-06-13 补充:WC 2026 大名单中未在 cloud dict 里的常用球员
+        "McKennie": "麦肯尼",
+        "Tillman": "蒂尔曼",
+        "Freeman": "弗里曼",
+        "Freese": "弗里斯",
+        "Dest": "德斯特",
+        "Pepi": "佩皮",
+        "Weah": "维阿",
+        "Balogun": "巴洛贡",
+        "Adams": "亚当斯",
+        "Robinson": "罗宾逊",
+        "Richards": "理查兹",
+        "Trusty": "特拉斯蒂",
+        "Aaronson": "阿伦森",
+        "Reyna": "雷纳",
+        "Scally": "斯卡利",
+        "McKenzie": "麦肯齐",
+        "Arfsten": "阿夫斯滕",
+        "Wright": "赖特",
+        "Brady": "布雷迪",
+        "Zendejas": "森德亚斯",
+        "Berhalter": "伯哈尔特",
+        "Roldan": "罗尔丹",
+        "Cardoso": "卡多索",
+        "Sergiño Dest": "德斯特",
+        "Sergino Dest": "德斯特",
+        "Weston McKennie": "麦肯尼",
+        "Malik Tillman": "蒂尔曼",
+        "Alex Freeman": "弗里曼",
+        "Matt Freese": "弗里斯"
     ]
 
     private init() {}

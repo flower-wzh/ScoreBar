@@ -129,6 +129,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         if mapping[reversed] == nil {
                             mapping[reversed] = zh
                         }
+                        // Also add accent-stripped variant so that "Sergiño Dest" (with ñ) also
+                        // matches "Sergino Dest" (without ñ) — for cross-format lookups
+                        let stripped = reversed.folding(options: .diacriticInsensitive, locale: .current)
+                        if mapping[stripped] == nil {
+                            mapping[stripped] = zh
+                        }
                     }
                 }
             }
